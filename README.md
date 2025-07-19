@@ -1,6 +1,6 @@
 # CryptoLinkShare
 
-Client-side encrypted link generator with AES-256, shareable URLs, QR codes, and JSON mapping export/import.
+CryptoLinkShare is a static, client-side web app that encrypts URLs via AES-256, generates opaque shareable links and QR codes, and persists mappings in localStorage. Easily export or import your mapping as JSON. No server required—pure HTML, CSS, and JavaScript.
 
 [![Try Demo](https://img.shields.io/badge/Try%20Demo-Online-blue?style=for-the-badge)](https://bocaletto-luca.github.io/CryptoLinkShare/index.html)
 
