@@ -1,4 +1,4 @@
-# CryptoLinkShare
+# Crypto Link Share | WebApp
 
 CryptoLinkShare is a static, client-side web app that encrypts URLs via AES-256, generates opaque shareable links and QR codes, and persists mappings in localStorage. Easily export or import your mapping as JSON. No server required—pure HTML, CSS, and JavaScript.
 
