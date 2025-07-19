@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>CryptoLinkShare – Client-Side Encrypted Link Sharer</title>
+  <meta name="description" content="CryptoLinkShare: client-side AES encrypted link generator with QR code, shareable links and mapping import/export.">
+  <meta name="author" content="Bocaletto Luca"/>
+  <meta name="robots" content="index, follow"/>
+  <meta name="keywords" content="CryptoLinkShare, encrypted link, AES, QR code, shareable URL, client-side"/>
+  <link rel="canonical" href="https://bocaletto-luca.github.io/CryptoLinkShare/index.html"/>
+  <meta property="og:title" content="CryptoLinkShare – Encrypted Link Sharer"/>
+  <meta property="og:description" content="Generate AES-encrypted, shareable links with QR codes—all client-side."/>
+  <meta property="og:url" content="https://bocaletto-luca.github.io/CryptoLinkShare/index.html"/>
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"WebApplication",
+    "name":"CryptoLinkShare",
+    "url":"https://bocaletto-luca.github.io/CryptoLinkShare/index.html",
+    "creator":{
+      "@type":"Person",
+      "name":"Bocaletto Luca",
+      "url":"https://github.com/bocaletto-luca"
+    },
+    "description":"Client-side AES encrypted link generator with QR code and mapping import/export."
+  }
+  </script>
+
+  <!-- Embedded Styles -->
+  <style>
+    * { box-sizing:border-box; }
+    body {
+      margin: 0; font-family:Arial,sans-serif;
+      background:#f8f9fa; color:#333;
+      display:flex; justify-content:center; align-items:center;
+      height:100vh;
+    }
+    #app {
+      background:#fff; padding:2rem; border-radius:8px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.1);
+      width:100%; max-width:400px; text-align:center;
+    }
+    h1 { margin-bottom:1rem; font-size:1.5rem; }
+    #generator input {
+      width:100%; padding:0.5rem; margin-bottom:0.5rem;
+      border:1px solid #ccc; border-radius:4px;
+    }
+    #generator button {
+      padding:0.5rem 1rem; border:none; border-radius:4px;
+      background:#00509e; color:#fff; cursor:pointer;
+    }
+    #generator button:hover { background:#003f7d; }
+    #result { margin-top:1rem; word-break:break-all; }
+    #qrcode { margin-top:1rem; }
+    #mappingControls { margin-top:2rem; }
+    #mappingControls button {
+      margin:0.25rem; padding:0.5rem 1rem;
+      border:none; border-radius:4px;
+      background:#28a745; color:#fff; cursor:pointer;
+    }
+    #mappingControls button:hover { background:#218838; }
+  </style>
+
+  <!-- CryptoJS for AES + QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <h1>🔐 CryptoLinkShare</h1>
+
+    <div id="generator">
+      <input type="url" id="urlInput" placeholder="Enter URL (https://...)" />
+      <button id="encryptBtn">Generate Secure Link</button>
+      <div id="result"></div>
+      <div id="qrcode"></div>
+    </div>
+
+    <div id="mappingControls">
+      <button id="exportBtn">Export Mapping</button>
+      <button id="importBtn">Import Mapping</button>
+      <input type="file" id="importInput" accept=".json" hidden />
+    </div>
+  </div>
+
+  <!-- App Logic -->
+  <script>
+  (() => {
+    // Change this to your own passphrase
+    const SECRET = 'my-very-strong-secret-123!';
+    // Load or init mapping
+    let mapping = JSON.parse(localStorage.getItem('mapping') || '{}');
+
+    // Helpers
+    function encryptURL(url) {
+      return encodeURIComponent(CryptoJS.AES.encrypt(url, SECRET).toString());
+    }
+    function decryptURL(token) {
+      const bytes = CryptoJS.AES.decrypt(decodeURIComponent(token), SECRET);
+      return bytes.toString(CryptoJS.enc.Utf8);
+    }
+    function saveMapping() {
+      localStorage.setItem('mapping', JSON.stringify(mapping));
+    }
+    function downloadFile(content, name, type) {
+      const blob = new Blob([content], { type });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // Redirect if hash contains a token
+    const prefix = '#/e/';
+    if (location.hash.startsWith(prefix)) {
+      const token = location.hash.slice(prefix.length);
+      try {
+        const url = decryptURL(token);
+        document.body.innerHTML = '<p>Redirecting to <a href="'+url+'">'+url+'</a>…</p>';
+        return setTimeout(() => location.href = url, 800);
+      } catch {
+        document.body.innerHTML = '<p style="color:red">Invalid or corrupted token.</p>';
+      }
+      return;
+    }
+
+    // UI Elements
+    const urlInput   = document.getElementById('urlInput');
+    const encryptBtn = document.getElementById('encryptBtn');
+    const resultDiv  = document.getElementById('result');
+    const qrContainer= document.getElementById('qrcode');
+    const exportBtn  = document.getElementById('exportBtn');
+    const importBtn  = document.getElementById('importBtn');
+    const importIn   = document.getElementById('importInput');
+
+    // Generate link + QR code
+    encryptBtn.onclick = () => {
+      const url = urlInput.value.trim();
+      if (!url) return alert('Please enter a URL.');
+      const token = encryptURL(url);
+      mapping[token] = url;
+      saveMapping();
+
+      const link = `${location.origin + location.pathname}#/e/${token}`;
+      resultDiv.innerHTML = 
+        '<a href="'+link+'" target="_blank">'+link+'</a> ' +
+        '<button id="copyBtn">Copy</button>';
+      qrContainer.innerHTML = '';
+      new QRCode(qrContainer, { text: link, width:128, height:128 });
+
+      document.getElementById('copyBtn').onclick = () => {
+        navigator.clipboard.writeText(link);
+        alert('Link copied to clipboard!');
+      };
+    };
+
+    // Export mapping.json
+    exportBtn.onclick = () => {
+      downloadFile(
+        JSON.stringify(mapping, null, 2),
+        'mapping.json',
+        'application/json'
+      );
+    };
+
+    // Import mapping.json
+    importBtn.onclick = () => importIn.click();
+    importIn.onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          mapping = JSON.parse(reader.result);
+          saveMapping();
+          alert('Mapping imported successfully.');
+        } catch {
+          alert('Invalid JSON file.');
+        }
+      };
+      reader.readAsText(file);
+      importIn.value = '';
+    };
+  })();
+  </script>
+</body>
+</html>
